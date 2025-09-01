@@ -1,32 +1,42 @@
 pipeline {
-    agent any
-
+    agent { label 'node1' }
+    
     environment {
-        DOCKER_IMAGE = 'your-dockerhub-username/go-cicd'
+        DOCKER_IMAGE = 'zackpfannerstill19/project-2'
         DOCKER_TAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Git Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/your-username/go-cicd.git'
+                git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/ZACKGIT1/Project-2.git'
             }
         }
-
-        stage('Build Docker Image') {
+        
+        stage('Docker Build and Tag') {
             steps {
                 script {
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    echo 'Docker Build and Tag started'
+                    echo "Building Docker image ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Image Push to Docker Hub') {
             steps {
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials-id') {
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push("latest")
+                    echo 'Docker Push to Docker Hub started'
+                    withCredentials([usernamePassword(
+                        credentialsId: 'docker-cred',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )]) {
+                        sh """
+                            echo "\$DOCKER_PASSWORD" | docker login -u "\$DOCKER_USERNAME" --password-stdin
+                            docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            docker logout
+                        """
                     }
                 }
             }
@@ -34,9 +44,15 @@ pipeline {
 
         stage('Deploy with Docker Compose') {
             steps {
-                sh 'docker-compose down'
-                sh 'docker-compose pull'
-                sh 'docker-compose up -d'
+                script {
+                    sh """
+                        export DOCKER_IMAGE=${DOCKER_IMAGE}
+                        export DOCKER_TAG=${DOCKER_TAG}
+                        docker-compose down
+                        docker-compose pull
+                        docker-compose up -d
+                    """
+                }
             }
         }
     }
