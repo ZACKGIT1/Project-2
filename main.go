@@ -6,7 +6,7 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "this is version 13")
+	fmt.Fprintf(w, "this is a sample go application deployed via docker-compose.")
 }
 
 func main() {
